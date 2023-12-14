@@ -17,6 +17,7 @@ class Day10Test {
     private static int height = 0;
     private long count = 0;
     private Character[][] field;
+    private static int scale = 1;
 
     @Test
     void test() throws IOException {
@@ -32,18 +33,113 @@ class Day10Test {
         var distance = length/2;
         assertEquals(23, distance);
 
+        expand();
+        assertEquals(4, countInside());
+    }
+
+    @Test
+    void testWithInput() throws IOException {
+        Path path = Paths.get("src/test/resources/day10input.txt");
+        var lines = Files.readAllLines(path);
+
+        start = findStart(lines);
+        width = lines.get(0).length();
+        height = lines.size();
+        field = new Character[width][height];
+
+        var length = follow(lines);
+        var distance = length/2;
+        assertEquals(6897, distance);
+
+        expand();
+        assertEquals(367, countInside());
+    }
+
+    private void expand() {
+        Character[][] expanded = new Character[width*2][height*2];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                Character c = field[x][y];
+                if(c == null) c = '.';
+                expanded[x*2][y*2] = c;
+            }
+        }
+        width = width * 2;
+        height = height * 2;
+        field = expanded;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (field[x][y] == null) {
+                    field[x][y] = '.';
+                }
+            }
+        }
+
+        // fill gaps
+        scale = 2;
+        for (int y = 0; y < height-1; y+=2) {
+            for (int x = 0; x < width-1; x+=2) {
+                var current = new Coordinate(x, y);
+                var currentChar = field[x][y];
+
+                if(x < width - 2) {
+                    var right = new Coordinate(x + 2, y);
+                    var rightChar = field[x + 2][y];
+                    if (isCompatible(current, right, currentChar, rightChar)) {
+                        field[x + 1][y] = '-';
+                    }
+                }
+
+                if(y < height - 2) {
+                    var down = new Coordinate(x, y + 2);
+                    var downChar = field[x][y + 2];
+                    if (isCompatible(current, down, currentChar, downChar)) {
+                        field[x][y + 1] = '|';
+                    }
+                }
+            }
+        }
+        scale = 1;
+    }
+
+    private int countInside() {
         markReachableTilesFromOutside();
-        printField(field);
+        var filled = -1;
+        while(filled != 0) {
+            filled = 0;
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    if (field[x][y] == '.' && isReachable(x, y)) {
+                        field[x][y] = 'O';
+                        filled++;
+                    }
+                }
+            }
+            if (filled == 0) {
+                break;
+            }
+        }
+
+        int count = 0;
+        for (int y = 0; y < height-2; y+=2) {
+            for (int x = 0; x < width - 2; x += 2) {
+                if (field[x][y] == '.') {
+                    field[x][y] = 'I';
+                    count++;
+                }
+
+            }
+        }
+        return count;
     }
 
     private void markReachableTilesFromOutside() {
-        var maxIterations = Math.max(width, height) * 2;
-        for(int iteration = 0; iteration < maxIterations; iteration++) {
             {
                 // oben
-                int y = iteration;
-                for (int x = iteration; x < width - iteration; x++) {
-                    if (field[x][y] == null && isReachable(x, y)) {
+                int y = 0;
+                for (int x = 0; x < width; x++) {
+                    if (field[x][y] == '.' && isReachable(x, y)) {
                         field[x][y] = 'O';
                     }
                 }
@@ -51,9 +147,9 @@ class Day10Test {
 
             {
                 // unten
-                int y = height - 1 - iteration;
-                for (int x = iteration; x < width - iteration; x++) {
-                    if (field[x][y] == null && isReachable(x, y)) {
+                int y = height - 1;
+                for (int x = 0; x < width; x++) {
+                    if (field[x][y] == '.' && isReachable(x, y)) {
                         field[x][y] = 'O';
                     }
                 }
@@ -61,9 +157,9 @@ class Day10Test {
 
             {
                 // links
-                int x = iteration;
-                for (int y = iteration; y < height - iteration; y++) {
-                    if (field[x][y] == null && isReachable(x, y)) {
+                int x = 0;
+                for (int y = 0; y < height; y++) {
+                    if (field[x][y] == '.' && isReachable(x, y)) {
                         field[x][y] = 'O';
                     }
                 }
@@ -71,14 +167,13 @@ class Day10Test {
 
             {
                 // rechts
-                int x = width - 1 - iteration;
-                for (int y = iteration; y < height - iteration; y++) {
-                    if (field[x][y] == null && isReachable(x, y)) {
+                int x = width - 1;
+                for (int y = 0; y < height; y++) {
+                    if (field[x][y] == '.' && isReachable(x, y)) {
                         field[x][y] = 'O';
                     }
                 }
             }
-        }
 
     }
 
@@ -101,20 +196,6 @@ class Day10Test {
         return false;
     }
 
-    @Test
-    void testWithInput() throws IOException {
-        Path path = Paths.get("src/test/resources/day10input.txt");
-        var lines = Files.readAllLines(path);
-
-        start = findStart(lines);
-        width = lines.get(0).length();
-        height = lines.size();
-
-        var length = follow(lines);
-        var distance = length/2;
-        assertEquals(6897, distance);
-    }
-
     private long follow(List<String> lines) {
         Coordinate previous = new Coordinate(-1,-1);
         Coordinate current = start;
@@ -124,6 +205,7 @@ class Day10Test {
             var neighbors = current.getNeighbors();
             for (Coordinate neighbor : neighbors) {
                 if (isConnected(current, neighbor, lines) && neighbor.equals(previous) == false) {
+//                    field[(int) current.x()][(int) current.y()] = 'x';
                     field[(int) current.x()][(int) current.y()] = pipeAt(current, lines);
                     count++;
                     previous = current;
@@ -223,26 +305,26 @@ class Day10Test {
 
         public List<Coordinate> getNeighbors() {
             List<Coordinate> neighbors = new ArrayList<>();
-            if(x > 0) neighbors.add(new Coordinate(x - 1, y));
-            if(x < width - 1) neighbors.add(new Coordinate(x + 1, y));
-            if(y > 0) neighbors.add(new Coordinate(x, y - 1));
-            if(y < height - 1) neighbors.add(new Coordinate(x, y + 1));
+            if(x > 0) neighbors.add(new Coordinate(x - scale, y));
+            if(x < width - scale) neighbors.add(new Coordinate(x + scale, y));
+            if(y > 0) neighbors.add(new Coordinate(x, y - scale));
+            if(y < height - scale) neighbors.add(new Coordinate(x, y + scale));
             return neighbors;
         }
         public boolean isWest(Coordinate neighbor) {
-            return y == neighbor.y && x == neighbor.x + 1;
+            return y == neighbor.y && x == neighbor.x + scale;
         }
 
         public boolean isEast(Coordinate neighbor) {
-            return y == neighbor.y && x == neighbor.x - 1;
+            return y == neighbor.y && x == neighbor.x - scale;
         }
 
         public boolean isNorth(Coordinate neighbor) {
-            return x == neighbor.x && y == neighbor.y + 1;
+            return x == neighbor.x && y == neighbor.y + scale;
         }
 
         public boolean isSouth(Coordinate neighbor) {
-            return x == neighbor.x && y == neighbor.y - 1;
+            return x == neighbor.x && y == neighbor.y - scale;
         }
 
     }
@@ -258,5 +340,6 @@ class Day10Test {
             }
             System.out.println("");
         }
+        System.out.println("");
     }
 }
