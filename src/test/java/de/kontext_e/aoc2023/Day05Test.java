@@ -6,8 +6,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
-import java.util.function.Consumer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,10 +22,30 @@ class Day05Test {
         almanac.mapSeeds();
 
         var lowestLocationNumber = almanac.getLowestLocationNumber();
-        var lowestLocationRange = almanac.getLowestLocationRange();
 
         assertEquals(35, lowestLocationNumber);
-        System.out.println(lowestLocationRange);
+
+        assertEquals(79, almanac.mapReverse(82));
+        assertEquals(14, almanac.mapReverse(43));
+        assertEquals(55, almanac.mapReverse(86));
+        assertEquals(13, almanac.mapReverse(35));
+
+        assertFalse(almanac.isInSeedRange(78));
+        assertTrue(almanac.isInSeedRange(79));
+        assertTrue(almanac.isInSeedRange(92));
+        assertFalse(almanac.isInSeedRange(93));
+
+        assertFalse(almanac.isInSeedRange(54));
+        assertTrue(almanac.isInSeedRange(55));
+        assertTrue(almanac.isInSeedRange(67));
+        assertFalse(almanac.isInSeedRange(68));
+
+        for (int i = 0; i < 100; i++) {
+            var candidate = almanac.mapReverse(i);
+            if (almanac.isInSeedRange(candidate)) {
+                break;
+            }
+        }
     }
 
     @Test
@@ -33,6 +56,16 @@ class Day05Test {
         var lowestLocationNumber = almanac.getLowestLocationNumber();
 
         assertEquals(282277027, lowestLocationNumber);
+
+        long nearst = 0;
+        for (long i = 0; i < 100000000; i++) {
+            var candidate = almanac.mapReverse(i);
+            if (almanac.isInSeedRange(candidate)) {
+                nearst = i;
+                break;
+            }
+        }
+        assertEquals(11554135, nearst);
     }
 
     @Test
@@ -41,9 +74,7 @@ class Day05Test {
         map.addRange(Range.parse("50 98 2"));
         map.addRange(Range.parse("52 50 48"));
 
-        var converted = map.map(79);
-
-        assertEquals(81, converted);
+        assertEquals(81, map.map(79));
         assertEquals(10, map.map(10));
         assertEquals(49, map.map(49));
         assertEquals(52, map.map(50));
@@ -51,6 +82,15 @@ class Day05Test {
         assertEquals(99, map.map(97));
         assertEquals(50, map.map(98));
         assertEquals(51, map.map(99));
+
+        assertEquals(79, map.mapReverse(81));
+        assertEquals(10, map.mapReverse(10));
+        assertEquals(49, map.mapReverse(49));
+        assertEquals(50, map.mapReverse(52));
+        assertEquals(51, map.mapReverse(53));
+        assertEquals(97, map.mapReverse(99));
+        assertEquals(98, map.mapReverse(50));
+        assertEquals(99, map.mapReverse(51));
     }
 
     @Test
@@ -69,6 +109,10 @@ class Day05Test {
         assertTrue(range.containsSource(98));
         assertTrue(range.containsSource(99));
         assertFalse(range.containsSource(100));
+        assertFalse(range.containsDestination(49));
+        assertFalse(range.containsDestination(52));
+        assertTrue(range.containsDestination(50));
+        assertTrue(range.containsDestination(51));
     }
 
     @Test
@@ -78,6 +122,8 @@ class Day05Test {
         assertEquals(50, range.map(98));
         assertEquals(51, range.map(99));
         assertEquals(-1, range.map(100));
+        assertEquals(98, range.mapReverse(50));
+        assertEquals(99, range.mapReverse(51));
     }
 
     @Test
@@ -92,9 +138,11 @@ class Day05Test {
     @Test
     void testSeedRange() {
         SeedRange seedRange = new SeedRange(5, 3);
-        for (var i : seedRange) {
-            System.out.println(i);
-        }
+        assertFalse(seedRange.contains(4));
+        assertTrue(seedRange.contains(5));
+        assertTrue(seedRange.contains(6));
+        assertTrue(seedRange.contains(7));
+        assertFalse(seedRange.contains(8));
     }
 
     private static class Almanac {
@@ -185,6 +233,7 @@ class Day05Test {
                     seeds.add(Long.parseLong(numberString));
                 }
             }
+            mapSeedRanges();
         }
 
         private void parseRange(String line) {
@@ -206,11 +255,29 @@ class Day05Test {
             }
         }
 
+        public long mapReverse(long number) {
+            var current = number;
+            for (int i = categoryMaps.size() - 1; i >= 0; i--) {
+                var map = categoryMaps.get(i);
+                current = map.mapReverse(current);
+            }
+            return current;
+        }
+
+        private final List<SeedRange> seedRanges = new ArrayList<>();
         public void mapSeedRanges() {
             for (int i = 0; i < seeds.size(); i += 2) {
-                //SeedRange seedRange = new SeedRange(seeds.get(i), seeds.get(i+1));
+                seedRanges.add(new SeedRange((Long) seeds.get(i), (Long) seeds.get(i + 1)));
             }
         }
+        public boolean isInSeedRange(long number) {
+            for (SeedRange seedRange : seedRanges) {
+                if(seedRange.contains(number)) return true;
+            }
+
+            return false;
+        }
+
         public long getLowestLocationNumber() {
             long lowest = Long.MAX_VALUE;
             for (var location : locations) {
@@ -221,23 +288,13 @@ class Day05Test {
 
             return lowest;
         }
-
-        public Range getLowestLocationRange() {
-            for (CategoryMap categoryMap : categoryMaps) {
-                if (categoryMap.is(States.HUMIDITY_TO_LOCATION)) {
-                    return categoryMap.getLowestRange();
-                }
-            }
-
-            return new Range();
-        }
     }
 
     private enum States{SEED_TO_SOIL, SOIL_TO_FERTILIZER, FERTILIZER_TO_WATER, WATER_TO_LIGHT, LIGHT_TO_TEMPERATURE, TEMPERATURE_TO_HUMIDITY, HUMIDITY_TO_LOCATION, IDLE}
 
     private static class CategoryMap {
-        private States category;
-        private List<Range> ranges = new ArrayList<>();
+        private final States category;
+        private final List<Range> ranges = new ArrayList<>();
 
         public CategoryMap(States category) {
             this.category = category;
@@ -261,16 +318,14 @@ class Day05Test {
             return input;
         }
 
-        public Range getLowestRange() {
-            var lowestRange = new Range();
-
+        public long mapReverse(long input) {
             for (Range range : ranges) {
-                if (range.isLower(lowestRange)) {
-                    lowestRange = range;
+                if (range.containsDestination(input)) {
+                    return range.mapReverse(input);
                 }
             }
 
-            return lowestRange;
+            return input;
         }
     }
 
@@ -307,13 +362,18 @@ class Day05Test {
         public boolean containsSource(long number) {
             return sourceRangeStart <= number && (sourceRangeStart + rangeLength) > number;
         }
+        public boolean containsDestination(long number) {
+            return destinationRangeStart <= number && (destinationRangeStart + rangeLength) > number;
+        }
+
         public long map(long number) {
             if(containsSource(number) == false) return -1;
             return number - sourceRangeStart + destinationRangeStart;
         }
 
-        public boolean isLower(Range other) {
-            return destinationRangeStart < other.destinationRangeStart;
+        public long mapReverse(long number) {
+            if(containsDestination(number) == false) return -1;
+            return number - destinationRangeStart + sourceRangeStart;
         }
 
         @Override
@@ -327,7 +387,7 @@ class Day05Test {
     }
 
 
-    private static class SeedRange implements Iterable<Long> {
+    private static class SeedRange {
         private final long start;
         private final long length;
 
@@ -336,37 +396,8 @@ class Day05Test {
             this.length = length;
         }
 
-        @Override
-        public Iterator<Long> iterator() {
-            return new SeedRangeIterator(start);
-        }
-
-        @Override
-        public void forEach(Consumer<? super Long> action) {
-            Iterable.super.forEach(action);
-        }
-
-        @Override
-        public Spliterator<Long> spliterator() {
-            return Iterable.super.spliterator();
-        }
-
-        private class SeedRangeIterator implements Iterator<Long> {
-            private long current;
-
-            public SeedRangeIterator(long start) {
-                current = start;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return current < (start + length);
-            }
-
-            @Override
-            public Long next() {
-                return current++;
-            }
+        public boolean contains(long number) {
+            return number >= start && number < (start + length);
         }
     }
 }
