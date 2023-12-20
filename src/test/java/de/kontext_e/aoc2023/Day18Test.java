@@ -1,5 +1,6 @@
 package de.kontext_e.aoc2023;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -7,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -19,7 +21,24 @@ class Day18Test {
     private final Tile nullTile = new DefaultTile();
     long currentX = 0;
     long currentY = 0;
+    long minX = Long.MAX_VALUE;
+    long maxX = Long.MIN_VALUE;
+    long minY = Long.MAX_VALUE;
+    long maxY = Long.MIN_VALUE;
     List<Coordinate> coordinates = new LinkedList<>();
+
+    @BeforeEach
+    void setUp() {
+        width = 0;
+        height = 0;
+        currentX = 0;
+        currentY = 0;
+        coordinates.clear();
+        minX = Long.MAX_VALUE;
+        maxX = Long.MIN_VALUE;
+        minY = Long.MAX_VALUE;
+        maxY = Long.MIN_VALUE;
+    }
 
     @Test
     void intro() throws IOException {
@@ -33,8 +52,16 @@ class Day18Test {
 
         var dugOut = process(lines);
         assertEquals(62, dugOut);
-        printField();
+        //printField();
         //createCoordinates(lines);
+
+        createCoordinates2(lines);
+        drawTrenches();
+        var startIndex = lookForBulge();
+        if(startIndex != -1) {
+            removeBulge(startIndex);
+            drawTrenches();
+        }
     }
 
     @Test
@@ -52,16 +79,46 @@ class Day18Test {
         assertEquals(45159, dugOut);
     }
 
-    private long process(List<String> lines) {
+    private void removeBulge(int startIndex) {
+        int i = startIndex;
+        var edge1 = new Edge(coordinates.get(i), coordinates.get(i + 1));
+        var edge2 = new Edge(coordinates.get(i+1), coordinates.get(i + 2));
+        var edge3 = new Edge(coordinates.get(i+2), coordinates.get(i + 3));
+        if (edge1.length() < edge3.length()) {
+            final var toRemove = edge1.end();
+            coordinates.remove(toRemove);
+            if (edge1.isHorizontal()) {
+                edge1.start.updateX(edge1.start.x);
+            } else {
+                edge1.start.updateY(edge1.start.y);
+            }
+        }
+        if (edge1.length() > edge3.length()) {
+            final var toRemove = edge1.start();
+            coordinates.remove(toRemove);
+            if (edge1.isHorizontal()) {
+                edge1.end.updateX(edge1.end.x);
+            } else {
+                edge1.end.updateY(edge1.end.y);
+            }
+        }
+    }
 
-        field = new Tile[width][height];
-        System.out.println("Width: "+width+" Height: "+height);
-        toTiles();
-        connectTiles();
-        digOut(lines);
-        markReachableTilesFromOutside();
-        final var countFromField = countInside();
+    private int lookForBulge() {
+        for (int i = 0; i < coordinates.size() - 3; i++) {
+            var edge1 = new Edge(coordinates.get(i), coordinates.get(i + 1));
+            var edge2 = new Edge(coordinates.get(i+1), coordinates.get(i + 2));
+            var edge3 = new Edge(coordinates.get(i+2), coordinates.get(i + 3));
+            var candidate = ""+edge1.direction()+edge2.direction()+edge3.direction();
+            if("ESW".equals(candidate)) return i;
+            if("SWN".equals(candidate)) return i;
+            if("WNE".equals(candidate)) return i;
+            if("NES".equals(candidate)) return i;
+        }
+        return -1;
+    }
 
+    private void createCoordinates2(List<String> lines) {
         coordinates.clear();
         // The digger starts in a 1 meter cube hole in the ground
         coordinates.add(new Coordinate(currentX, currentY));
@@ -96,10 +153,6 @@ class Day18Test {
             }
         }
 
-        long minX = Long.MAX_VALUE;
-        long maxX = Long.MIN_VALUE;
-        long minY = Long.MAX_VALUE;
-        long maxY = Long.MIN_VALUE;
         for (Coordinate coordinate : coordinates) {
             if (minX > coordinate.x()) {
                 minX = coordinate.x();
@@ -114,7 +167,57 @@ class Day18Test {
                 minY = coordinate.y();
             }
         }
-        System.out.printf("min x = %d min y = %d max x = %d max y = %d\n", minX, minY, maxX, maxY);
+
+        width = (int) (maxX - minX + 1);
+        height = (int) (maxY - minY + 1);
+
+        System.out.printf("min x = %d min y = %d max x = %d max y = %d width = %d height = %d\n", minX, minY, maxX, maxY, width, height);
+    }
+
+    private void drawTrenches() {
+        final var arrayWidth = (int) (minX + width);
+        final var arrayHeight = (int) (minY + height);
+        char[][] canvas = new char[arrayWidth][arrayHeight];
+        for(int i = 0; i < arrayWidth; i++) {
+            Arrays.fill(canvas[i], '.');
+        }
+
+        int cx = (int) coordinates.get(0).x();
+        int cy = (int) coordinates.get(0).y();
+        canvas[cx][cy] = '#';
+        for (int i = 0; i < coordinates.size() - 1; i++) {
+            var edge = new Edge(coordinates.get(i), coordinates.get(i + 1));
+            var delta = 1;
+            if(edge.isBackwards()) delta = -1;
+            for (int count = 0; count < edge.length(); count++) {
+                if (edge.isHorizontal()) {
+                    cx += delta;
+                } else {
+                    cy += delta;
+                }
+                canvas[cx][cy] = '#';
+            }
+        }
+
+        for (int y = 0; y < arrayHeight; y++) {
+            for (int x = 0; x < arrayWidth; x++) {
+                System.out.print(canvas[x][y]);
+            }
+            System.out.println();
+        }
+        System.out.println();
+    }
+
+    private long process(List<String> lines) {
+
+        field = new Tile[width][height];
+        System.out.println("Width: "+width+" Height: "+height);
+        toTiles();
+        connectTiles();
+        digOut(lines);
+        markReachableTilesFromOutside();
+        final var countFromField = countInside();
+
 
         var countFromRay = 0L;
         for (var y = minY; y <= maxY; y++) {
@@ -221,10 +324,33 @@ class Day18Test {
 
         public long length() {
             if (isHorizontal()) {
-                return end.x() - start.x() + 1;
+                return Math.abs(end.x() - start.x());
             } else {
-                return end.y() - start.y() + 1;
+                return Math.abs(end.y() - start.y());
             }
+        }
+
+        public boolean isBackwards() {
+            if (isHorizontal()) {
+                return end.x < start.x;
+            } else {
+                return end.y < start.y;
+            }
+        }
+
+        public char direction() {
+            if (isHorizontal()) {
+                if (isBackwards()) return 'W';
+                else return 'E';
+            } else {
+                if(isBackwards()) return 'N';
+                else return 'S';
+            }
+        }
+
+        public boolean isPerpendicular(Edge edge2) {
+            return isHorizontal() && !edge2.isHorizontal()
+                    || !isHorizontal() && edge2.isHorizontal();
         }
     }
 
@@ -411,7 +537,22 @@ class Day18Test {
 
         return false;
     }
-    private record Coordinate(long x, long y) {
+    private class Coordinate {
+        long x;
+        long y;
+
+        public Coordinate(long x, long y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public long x() {
+            return x;
+        }
+        public long y() {
+            return y;
+        }
+
         static int scale = 1;
         public List<Coordinate> getNeighbors() {
             List<Coordinate> neighbors = new ArrayList<>();
@@ -438,6 +579,13 @@ class Day18Test {
         }
 
 
+        public void updateX(long x) {
+            this.x = x;
+        }
+
+        public void updateY(long y) {
+            this.y = y;
+        }
     }
 
     private void digOut(List<String> lines) {
