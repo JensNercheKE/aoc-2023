@@ -7,10 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -26,6 +23,8 @@ class Day18Test {
     long minY = Long.MAX_VALUE;
     long maxY = Long.MIN_VALUE;
     List<Coordinate> coordinates = new LinkedList<>();
+    private final List<Edge> edges = new ArrayList<>();
+    private final List<Integer> lengths = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -38,6 +37,8 @@ class Day18Test {
         maxX = Long.MIN_VALUE;
         minY = Long.MAX_VALUE;
         maxY = Long.MIN_VALUE;
+        edges.clear();
+        lengths.clear();
     }
 
     @Test
@@ -57,11 +58,8 @@ class Day18Test {
 
         createCoordinates2(lines);
         drawTrenches();
-        var startIndex = lookForBulge();
-        if(startIndex != -1) {
-            removeBulge(startIndex);
-            drawTrenches();
-        }
+        countWithRays();
+
     }
 
     @Test
@@ -73,156 +71,60 @@ class Day18Test {
         height = 650;
         currentX = 140;
         currentY = 400;
+/*
 
         var dugOut = process(lines);
-
         assertEquals(45159, dugOut);
+*/
+
+        createCoordinates2(lines);
+        toEdges();
+//        drawTrenches();
+        countWithRays();
+        System.out.println("horizontal lines detected: "+horizontalLinesDetected);
+        var count = 0;
+        for (Edge edge : edges) {
+            if(edge.isHorizontal()) {
+                count++;
+                if (isNotDetected(edge)) {
+                    System.out.println("Edge was not detected: "+edge);
+                }
+            }
+  //          System.out.println("Horizontal edge in line "+edge.start.y);
+        }
+        System.out.println("horizontal lines counted : "+count);
+
+
+/*
+        currentX = 3029000;
+        currentY = 13536600;
+        createCoordinates(lines);
+        toEdges();
+        var ggt = ggt(lengths);
+        System.out.println("GGT = "+ggt);
+*/
+
     }
 
-    private void removeBulge(int startIndex) {
-        int i = startIndex;
-        var edge1 = new Edge(coordinates.get(i), coordinates.get(i + 1));
-        var edge2 = new Edge(coordinates.get(i+1), coordinates.get(i + 2));
-        var edge3 = new Edge(coordinates.get(i+2), coordinates.get(i + 3));
-        if (edge1.length() < edge3.length()) {
-            final var toRemove = edge1.end();
-            coordinates.remove(toRemove);
-            if (edge1.isHorizontal()) {
-                edge1.start.updateX(edge1.start.x);
-            } else {
-                edge1.start.updateY(edge1.start.y);
-            }
+    private boolean isNotDetected(Edge edge) {
+        for (Edge edge1 : horizontalEdgesDetected) {
+            if(edge.equals(edge1)) return false;
         }
-        if (edge1.length() > edge3.length()) {
-            final var toRemove = edge1.start();
-            coordinates.remove(toRemove);
-            if (edge1.isHorizontal()) {
-                edge1.end.updateX(edge1.end.x);
-            } else {
-                edge1.end.updateY(edge1.end.y);
-            }
-        }
+
+        return true;
     }
 
-    private int lookForBulge() {
-        for (int i = 0; i < coordinates.size() - 3; i++) {
-            var edge1 = new Edge(coordinates.get(i), coordinates.get(i + 1));
-            var edge2 = new Edge(coordinates.get(i+1), coordinates.get(i + 2));
-            var edge3 = new Edge(coordinates.get(i+2), coordinates.get(i + 3));
-            var candidate = ""+edge1.direction()+edge2.direction()+edge3.direction();
-            if("ESW".equals(candidate)) return i;
-            if("SWN".equals(candidate)) return i;
-            if("WNE".equals(candidate)) return i;
-            if("NES".equals(candidate)) return i;
-        }
-        return -1;
-    }
-
-    private void createCoordinates2(List<String> lines) {
-        coordinates.clear();
-        // The digger starts in a 1 meter cube hole in the ground
-        coordinates.add(new Coordinate(currentX, currentY));
-
-        // They then dig the specified number of meters
-        for (String line : lines) {
-            final var splitted = line.split(" ");
-            var direction = splitted[0];
-            var count = Long.parseLong(splitted[1]);
-            switch (direction) {
-                case "R" -> {
-                    // right
-                    currentX += count;
-                    coordinates.add(new Coordinate(currentX, currentY));
-                }
-                case "D" -> {
-                    // down
-                    currentY += count;
-                    coordinates.add(new Coordinate(currentX, currentY));
-                }
-                case "L" -> {
-                    // left
-                    currentX -= count;
-                    coordinates.add(new Coordinate(currentX, currentY));
-                }
-                case "U" -> {
-                    // up
-                    currentY -= count;
-                    coordinates.add(new Coordinate(currentX, currentY));
-                }
-                default -> {}
-            }
-        }
-
-        for (Coordinate coordinate : coordinates) {
-            if (minX > coordinate.x()) {
-                minX = coordinate.x();
-            }
-            if (maxX < coordinate.x()) {
-                maxX = coordinate.x();
-            }
-            if (maxY < coordinate.y()) {
-                maxY = coordinate.y();
-            }
-            if (minY > coordinate.y()) {
-                minY = coordinate.y();
-            }
-        }
-
-        width = (int) (maxX - minX + 1);
-        height = (int) (maxY - minY + 1);
-
-        System.out.printf("min x = %d min y = %d max x = %d max y = %d width = %d height = %d\n", minX, minY, maxX, maxY, width, height);
-    }
-
-    private void drawTrenches() {
-        final var arrayWidth = (int) (minX + width);
-        final var arrayHeight = (int) (minY + height);
-        char[][] canvas = new char[arrayWidth][arrayHeight];
-        for(int i = 0; i < arrayWidth; i++) {
-            Arrays.fill(canvas[i], '.');
-        }
-
-        int cx = (int) coordinates.get(0).x();
-        int cy = (int) coordinates.get(0).y();
-        canvas[cx][cy] = '#';
-        for (int i = 0; i < coordinates.size() - 1; i++) {
-            var edge = new Edge(coordinates.get(i), coordinates.get(i + 1));
-            var delta = 1;
-            if(edge.isBackwards()) delta = -1;
-            for (int count = 0; count < edge.length(); count++) {
-                if (edge.isHorizontal()) {
-                    cx += delta;
-                } else {
-                    cy += delta;
-                }
-                canvas[cx][cy] = '#';
-            }
-        }
-
-        for (int y = 0; y < arrayHeight; y++) {
-            for (int x = 0; x < arrayWidth; x++) {
-                System.out.print(canvas[x][y]);
-            }
-            System.out.println();
-        }
-        System.out.println();
-    }
-
-    private long process(List<String> lines) {
-
-        field = new Tile[width][height];
-        System.out.println("Width: "+width+" Height: "+height);
-        toTiles();
-        connectTiles();
-        digOut(lines);
-        markReachableTilesFromOutside();
-        final var countFromField = countInside();
-
-
+    private void countWithRays() {
+        horizontalEdgesDetected.clear();
+        horizontalLinesDetected = 0;
         var countFromRay = 0L;
         for (var y = minY; y <= maxY; y++) {
             boolean inside = false;
             var insideStart = -1L;
+
+            if (y == 300) {
+                System.out.println("hier");
+            }
 
             for(var raystart = minX - 2; raystart < maxX;) {
                 var nextEdge = findNextEdge(raystart, y);
@@ -234,7 +136,9 @@ class Day18Test {
                         }
                         countFromRay += nextEdge.length();
                         raystart = nextEdge.end().x() + 1;
-                        System.out.println("New count X: " + countFromRay);
+                        System.out.println("New count X: " + countFromRay+" on y "+nextEdge.end.y);
+                        horizontalLinesDetected++;
+                        horizontalEdgesDetected.add(nextEdge);
                         inside = isInside(nextEdge.end().x() + 1, y);
                         insideStart = nextEdge.end.x() + 1;
                         System.out.println("Becomes inside: "+inside);
@@ -254,103 +158,52 @@ class Day18Test {
                 }
             }
         }
-
-
-        return countFromField;
     }
 
-    private Edge findNextEdge(long rayX, long y) {
-        Coordinate nextStart = new Coordinate(10000, 10000);
-        Coordinate nextEnd = new Coordinate(10000, 10000);
+    @Test
+    void introWithBulgeRemoval() throws IOException {
+        Path path = Paths.get("src/test/resources/day18test.txt");
+        var lines = Files.readAllLines(path);
 
+        width = 15;
+        height = 15;
+        currentX = 3;
+        currentY = 3;
+
+        var dugOut = process(lines);
+        assertEquals(62, dugOut);
+        //printField();
+        //createCoordinates(lines);
+
+        createCoordinates2(lines);
+        drawTrenches();
+
+        var bulge = lookForBulge(0);
+        if(bulge.index != -1) {
+            removeBulge(bulge);
+            drawTrenches();
+        }
+
+        bulge = lookForBulge(bulge.index + 1);
+        if(bulge.index != -1) {
+            removeBulge(bulge);
+            drawTrenches();
+        }
+
+        bulge = lookForBulge(bulge.index + 1);
+        if(bulge.index != -1) {
+            removeBulge(bulge);
+            drawTrenches();
+        }
+
+    }
+
+    private void toEdges() {
+        edges.clear();
         for (int i = 0; i < coordinates.size() - 1; i++) {
-            var start = coordinates.get(i);
-            var end = coordinates.get(i+1);
-
-            if (start.y() == end.y()) {
-                // horizontal edge
-                if (start.y() == y) {
-                    // on same line
-                    if (start.x() > rayX || end.x() > rayX) {
-                        // right side from ray
-                        if (start.x() < nextStart.x()) {
-                            // more left than current
-                            nextStart = start;
-                            nextEnd = end;
-                        }
-                        if (end.x() < nextEnd.x()) {
-                            // could go from right to left
-                            nextStart = start;
-                            nextEnd = end;
-                        }
-                    }
-                }
-            }
-
-            if (start.x() == end.x()) {
-                // vertical edge
-                if ((start.y() < y && end.y() > y)
-                        || (start.y() > y && end.y() < y)) {
-                    // crossing the ray
-                    if (start.x() > rayX) {
-                        // right side from ray
-                        if (start.x() < nextStart.x() || nextStart.x() > nextEnd.x()) {
-                            // more left than current
-                            nextStart = start;
-                            nextEnd = end;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (nextStart.x() != 10000) {
-            if (nextStart.x() > nextEnd.x()) {
-                var tmp = nextStart;
-                nextStart = nextEnd;
-                nextEnd = tmp;
-            }
-            return new Edge(nextStart, nextEnd);
-        }
-
-        return null;
-    }
-
-    private record Edge(Coordinate start, Coordinate end) {
-
-        public boolean isHorizontal() {
-            return start.y() == end.y();
-        }
-
-        public long length() {
-            if (isHorizontal()) {
-                return Math.abs(end.x() - start.x());
-            } else {
-                return Math.abs(end.y() - start.y());
-            }
-        }
-
-        public boolean isBackwards() {
-            if (isHorizontal()) {
-                return end.x < start.x;
-            } else {
-                return end.y < start.y;
-            }
-        }
-
-        public char direction() {
-            if (isHorizontal()) {
-                if (isBackwards()) return 'W';
-                else return 'E';
-            } else {
-                if(isBackwards()) return 'N';
-                else return 'S';
-            }
-        }
-
-        public boolean isPerpendicular(Edge edge2) {
-            return isHorizontal() && !edge2.isHorizontal()
-                    || !isHorizontal() && edge2.isHorizontal();
+            final var edge = new Edge(coordinates.get(i), coordinates.get(i + 1));
+            edges.add(edge);
+            lengths.add((int) edge.length());
         }
     }
 
@@ -413,22 +266,282 @@ class Day18Test {
                 minY = coordinate.y();
             }
         }
-        System.out.printf("min x = %d min y = %d max x = %d max y = %d\n", minX, minY, maxX, maxY);
-
-        long insideCounter = 0;
-        for(long y = minY - 1; y < maxY + 1; y++) {
-            for (long x = minX - 1; x < maxX + 1; x++) {
-                final var inside = isInside(x, y);
-
-                if (inside == true) {
-                    insideCounter++;
-                }
-            }
-            System.out.println("y: "+y);
-        }
-        System.out.println("Inside counter: "+insideCounter);
+        width = (int) (maxX - minX + 1);
+        height = (int) (maxY - minY + 1);
+        System.out.printf("min x = %d min y = %d max x = %d max y = %d width = %d height = %d\n", minX, minY, maxX, maxY, width, height);
     }
 
+    private void removeBulge(Bulge bulge) {
+        int i = bulge.index;
+        var edge1 = new Edge(coordinates.get(i), coordinates.get(i + 1));
+        var edge2 = new Edge(coordinates.get(i+1), coordinates.get(i + 2));
+        var edge3 = new Edge(coordinates.get(i+2), coordinates.get(i + 3));
+
+        if ("ESW".equalsIgnoreCase(bulge.type)) {
+            System.out.println("Remove ESW bulge starting at "+i);
+            coordinates.remove(edge2.start);
+            coordinates.remove(edge2.end);
+            if (edge1.length() > edge3.length()) {
+                coordinates.remove(edge3.start);
+                coordinates.remove(edge3.end);
+                coordinates.add(i + 1, new Coordinate(edge3.end.x, edge1.start.y));
+            } else {
+                coordinates.remove(edge1.start);
+                coordinates.add(i, new Coordinate(edge1.start.x, edge3.start.y));
+            }
+        }
+        if ("WNE".equalsIgnoreCase(bulge.type)) {
+            System.out.printf("Remove %s bulge starting at %d\n", bulge.type, i);
+            coordinates.remove(edge2.start);
+            coordinates.remove(edge2.end);
+            if (edge1.length() > edge3.length()) {
+                coordinates.remove(edge3.start);
+                coordinates.remove(edge3.end);
+            } else {
+                coordinates.remove(edge1.start);
+                coordinates.remove(edge1.end);
+            }
+        }
+    }
+
+    private Bulge lookForBulge(int startIndex) {
+        for (int i = startIndex; i < coordinates.size() - 3; i++) {
+            var edge1 = new Edge(coordinates.get(i), coordinates.get(i + 1));
+            var edge2 = new Edge(coordinates.get(i+1), coordinates.get(i + 2));
+            var edge3 = new Edge(coordinates.get(i+2), coordinates.get(i + 3));
+            var candidate = ""+edge1.direction()+edge2.direction()+edge3.direction();
+            if("ESW".equals(candidate)) return new Bulge(candidate, i);
+            if("SWN".equals(candidate)) return new Bulge(candidate, i);
+            if("WNE".equals(candidate)) return new Bulge(candidate, i);
+            if("NES".equals(candidate)) return new Bulge(candidate, i);
+        }
+        return new Bulge("", -1);
+    }
+
+    private record Bulge(String type, int index) { }
+
+    private void createCoordinates2(List<String> lines) {
+        coordinates.clear();
+        // The digger starts in a 1 meter cube hole in the ground
+        coordinates.add(new Coordinate(currentX, currentY));
+
+        // They then dig the specified number of meters
+        for (String line : lines) {
+            final var splitted = line.split(" ");
+            var direction = splitted[0];
+            var count = Long.parseLong(splitted[1]);
+            switch (direction) {
+                case "R" -> {
+                    // right
+                    currentX += count;
+                    coordinates.add(new Coordinate(currentX, currentY));
+                }
+                case "D" -> {
+                    // down
+                    currentY += count;
+                    coordinates.add(new Coordinate(currentX, currentY));
+                }
+                case "L" -> {
+                    // left
+                    currentX -= count;
+                    coordinates.add(new Coordinate(currentX, currentY));
+                }
+                case "U" -> {
+                    // up
+                    currentY -= count;
+                    coordinates.add(new Coordinate(currentX, currentY));
+                }
+                default -> {}
+            }
+        }
+
+        for (Coordinate coordinate : coordinates) {
+            if (minX > coordinate.x()) {
+                minX = coordinate.x();
+            }
+            if (maxX < coordinate.x()) {
+                maxX = coordinate.x();
+            }
+            if (maxY < coordinate.y()) {
+                maxY = coordinate.y();
+            }
+            if (minY > coordinate.y()) {
+                minY = coordinate.y();
+            }
+        }
+
+        width = (int) (maxX - minX + 1);
+        height = (int) (maxY - minY + 1);
+
+        System.out.printf("min x = %d min y = %d max x = %d max y = %d width = %d height = %d\n", minX, minY, maxX, maxY, width, height);
+    }
+
+    private void drawTrenches() {
+        final var arrayWidth = (int) (width);
+        final var arrayHeight = (int) (height);
+        char[][] canvas = new char[arrayWidth][arrayHeight];
+        for(int i = 0; i < arrayWidth; i++) {
+            Arrays.fill(canvas[i], '.');
+        }
+
+        int cx = (int) coordinates.get(0).x();
+        int cy = (int) coordinates.get(0).y();
+        cx -= minX;
+        cy -= minY;
+        canvas[cx][cy] = '#';
+        for (int i = 0; i < coordinates.size() - 1; i++) {
+            var edge = new Edge(coordinates.get(i), coordinates.get(i + 1));
+            var delta = 1;
+            if(edge.isBackwards()) delta = -1;
+            for (int count = 0; count < edge.length() - 1; count++) {
+                if (edge.isHorizontal()) {
+                    cx += delta;
+                } else {
+                    cy += delta;
+                }
+                canvas[cx][cy] = '#';
+            }
+        }
+
+        for (int y = 0; y < arrayHeight; y++) {
+            for (int x = 0; x < arrayWidth; x++) {
+                System.out.print(canvas[x][y]);
+            }
+            System.out.println();
+        }
+        System.out.println();
+    }
+
+    private long process(List<String> lines) {
+
+        field = new Tile[width][height];
+        System.out.println("Width: "+width+" Height: "+height);
+        toTiles();
+        connectTiles();
+        digOut(lines);
+        markReachableTilesFromOutside();
+        return countInside();
+    }
+
+    private List<Edge> horizontalEdgesDetected = new ArrayList<>();
+
+    private int horizontalLinesDetected = 0;
+    private Edge findNextEdge(long rayX, long y) {
+        Coordinate nextStart = new Coordinate(100_000_000, 100_000_000);
+        Coordinate nextEnd = new Coordinate(100_000_000, 100_000_000);
+
+        for (int i = 0; i < coordinates.size() - 1; i++) {
+            var start = coordinates.get(i);
+            var end = coordinates.get(i+1);
+
+            if (start.y() == end.y()) {
+                // horizontal edge
+                if (start.y() == y) {
+                    if (y == 300) {
+                        System.out.println("hier");
+                    }
+                    // on same line
+                    if (start.x() > rayX || end.x() > rayX) {
+                        // right side from ray
+                        if (start.x() < nextStart.x()) {
+                            // more left than current
+                            nextStart = start;
+                            nextEnd = end;
+                        }
+                        if (end.x() < nextEnd.x()) {
+                            // could go from right to left
+                            nextStart = start;
+                            nextEnd = end;
+                        }
+                    }
+                }
+            }
+
+            if (start.x() == end.x()) {
+                // vertical edge
+                if ((start.y() < y && end.y() > y)
+                        || (start.y() > y && end.y() < y)) {
+                    // crossing the ray
+                    if (start.x() > rayX) {
+                        // right side from ray
+                        if (start.x() < nextStart.x() || start.x() < nextEnd.x()) {
+                            // more left than current
+                            nextStart = start;
+                            nextEnd = end;
+                            return createAscendingEdge(nextStart, nextEnd);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (nextStart.x() != 100_000_000) {
+            return createAscendingEdge(nextStart, nextEnd);
+        }
+
+        return null;
+    }
+
+    private static Edge createAscendingEdge(Coordinate nextStart, Coordinate nextEnd) {
+        if (nextStart.x() > nextEnd.x()) {
+            var tmp = nextStart;
+            nextStart = nextEnd;
+            nextEnd = tmp;
+        }
+        return new Edge(nextStart, nextEnd);
+    }
+
+    private record Edge(Coordinate start, Coordinate end) {
+
+        public boolean isHorizontal() {
+            return start.y() == end.y();
+        }
+
+        public long length() {
+            if (isHorizontal()) {
+                return Math.abs(end.x() - start.x()) + 1;
+            } else {
+                return Math.abs(end.y() - start.y()) + 1;
+            }
+        }
+
+        public boolean isBackwards() {
+            if (isHorizontal()) {
+                return end.x < start.x;
+            } else {
+                return end.y < start.y;
+            }
+        }
+
+        public char direction() {
+            if (isHorizontal()) {
+                if (isBackwards()) return 'W';
+                else return 'E';
+            } else {
+                if(isBackwards()) return 'N';
+                else return 'S';
+            }
+        }
+
+        public boolean isPerpendicular(Edge edge2) {
+            return isHorizontal() && !edge2.isHorizontal()
+                    || !isHorizontal() && edge2.isHorizontal();
+        }
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Edge edge = (Edge) o;
+            return Objects.equals(start, edge.start) && Objects.equals(end, edge.end)
+                    || Objects.equals(start, edge.end) && Objects.equals(end, edge.start);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(start, end);
+        }
+
+    }
     private boolean isInside(long x, long y) {
         boolean inside = false;
         for (int i = 0; i < coordinates.size() - 1; i++) {
@@ -519,6 +632,7 @@ class Day18Test {
         }
 
     }
+
     private boolean isReachable(int x, int y) {
         if(x == 0) return true;
         if(x == width - 1) return true;
@@ -540,7 +654,6 @@ class Day18Test {
     private class Coordinate {
         long x;
         long y;
-
         public Coordinate(long x, long y) {
             this.x = x;
             this.y = y;
@@ -549,11 +662,12 @@ class Day18Test {
         public long x() {
             return x;
         }
+
         public long y() {
             return y;
         }
-
         static int scale = 1;
+
         public List<Coordinate> getNeighbors() {
             List<Coordinate> neighbors = new ArrayList<>();
             if(x > 0) neighbors.add(new Coordinate(x - scale, y));
@@ -565,7 +679,6 @@ class Day18Test {
         public boolean isWest(Coordinate neighbor) {
             return y == neighbor.y && x == neighbor.x + scale;
         }
-
         public boolean isEast(Coordinate neighbor) {
             return y == neighbor.y && x == neighbor.x - scale;
         }
@@ -586,8 +699,26 @@ class Day18Test {
         public void updateY(long y) {
             this.y = y;
         }
-    }
 
+        @Override
+        public String toString() {
+            return "(" + x + "," + y + ")";
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Coordinate that = (Coordinate) o;
+            return x == that.x && y == that.y;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(x, y);
+        }
+
+    }
     private void digOut(List<String> lines) {
         // The digger starts in a 1 meter cube hole in the ground
         field[(int) currentX][(int) currentY].digOut();
@@ -624,6 +755,7 @@ class Day18Test {
             field[(int) currentX][(int) currentY].digOut();
         }
     }
+
     private void digLeft(int count) {
         for(int i = 0; i < count; i++) {
             currentX--;
@@ -642,7 +774,6 @@ class Day18Test {
             field[(int) currentX][(int) currentY].digOut();
         }
     }
-
 
     private void printField() {
         for (int y = 0; y < height; y++) {
@@ -696,21 +827,21 @@ class Day18Test {
     }
 
     private interface Tile {
+
         void setUpNeighbor(Tile tile);
         void setDownNeighbor(Tile tile);
         void setRightNeighbor(Tile tile);
         void setLeftNeighbor(Tile tile);
-
         void fromLeft(long heatLoss, int sameDirection);
+
         void fromRight(long heatLoss, int sameDirection);
         void fromTop(long heatLoss, int sameDirection);
         void fromDown(long heatLoss, int sameDirection);
-
         void toLeft(long heatLoss, int sameDirection);
+
         void toRight(long heatLoss, int sameDirection);
         void toTop(long heatLoss, int sameDirection);
         void toDown(long heatLoss, int sameDirection);
-
         void clear();
 
         void digOut();
@@ -720,16 +851,16 @@ class Day18Test {
         void markAsOutside();
 
         boolean isOutside();
-    }
 
+    }
     private abstract class AbstractTile implements Tile {
+
         Tile up;
         Tile down;
         Tile right;
         Tile left;
         boolean dugOut = false;
         boolean outside = false;
-
         @Override
         public void digOut() {
             dugOut = true;
@@ -794,12 +925,12 @@ class Day18Test {
         public void toDown(long heatLoss, int sameDirection) {
             down.fromTop(heatLoss, sameDirection);
         }
-    }
 
+    }
     private class GroundTile extends AbstractTile {
+
         @Override
         public void fromLeft(long heatLoss, int sameDirection) {}
-
         @Override
         public void fromRight(long heatLoss, int sameDirection) {}
 
@@ -816,12 +947,12 @@ class Day18Test {
 
             return ".";
         }
-    }
 
+    }
     private class DefaultTile extends AbstractTile {
+
         @Override
         public void fromLeft(long heatLoss, int sameDirection) {}
-
         @Override
         public void fromRight(long heatLoss, int sameDirection) {}
 
@@ -835,6 +966,21 @@ class Day18Test {
         public String toString() {
             return "";
         }
-    }
 
+
+    }
+    public static int ggt(List<Integer> numbers) {
+        if(numbers == null || numbers.size() < 2) throw new IllegalArgumentException("Illegal numbers: " + numbers);
+
+        final var a = numbers.get(0);
+        final var b = numbers.get(1);
+        var x = Day08Test.ggt(a, b);
+        if (numbers.size() > 2) {
+            for (int i = 2; i  < numbers.size(); i++) {
+                final var b1 = numbers.get(i);
+                x = Day08Test.ggt(x, b1);
+            }
+        }
+        return (int) x;
+    }
 }
