@@ -61,7 +61,7 @@ class Day18Test {
 
         createCoordinates2(lines);
         drawTrenches();
-        countWithRays(minY, maxY);
+        countWithRays(minY, maxY+1);
 
     }
     @Test
@@ -77,12 +77,10 @@ class Day18Test {
         var dugOut = process(lines);
         assertEquals(45159, dugOut);
 
-/*
         createCoordinates2(lines);
         toEdges();
-        var count = countWithRays(minY, maxY);
+        var count = countWithRays(minY, maxY+1);
         assertEquals(45159, count);
-*/
     }
 
     @Test @Disabled("Runs for 50 min")
