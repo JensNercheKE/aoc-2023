@@ -73,25 +73,16 @@ class Day18Test {
         height = 650;
         currentX = 140;
         currentY = 400;
-/*
 
         var dugOut = process(lines);
         assertEquals(45159, dugOut);
-*/
 
 /*
         createCoordinates2(lines);
         toEdges();
-        var count = countWithRays();
+        var count = countWithRays(minY, maxY);
         assertEquals(45159, count);
 */
-
-        currentX = 3029000;
-        currentY = 13536600;
-        createCoordinates(lines);
-        toEdges();
-        var countWithRay = countWithRays(minY, maxY);
-        System.out.println("Result: "+countWithRay);
     }
 
     @Test @Disabled("Runs for 50 min")
@@ -100,7 +91,7 @@ class Day18Test {
         var lines = Files.readAllLines(path);
         currentX = 3029000;
         currentY = 13536600;
-        createCoordinates(lines);
+        createCoordinates2(lines);
         toEdges();
 
         // 19:40 50:27 min
