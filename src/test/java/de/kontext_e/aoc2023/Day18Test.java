@@ -92,7 +92,7 @@ class Day18Test {
         createCoordinates2(lines);
         toEdges();
 
-        // 19:40 50:27 min
+        // start at 19:40, took 50:27 min
         /*
         min x = 358 min y = 5 max x = 14047781 max y = 19314900 width = 14047424 height = 19314896
 numberOfLinesPerTask 1207182
