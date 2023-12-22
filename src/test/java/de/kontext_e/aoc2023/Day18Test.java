@@ -1,6 +1,7 @@
 package de.kontext_e.aoc2023;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -25,6 +27,7 @@ class Day18Test {
     List<Coordinate> coordinates = new LinkedList<>();
     private final List<Edge> edges = new ArrayList<>();
     private final List<Integer> lengths = new ArrayList<>();
+    private ExecutorService executorService;
 
     @BeforeEach
     void setUp() {
@@ -58,10 +61,9 @@ class Day18Test {
 
         createCoordinates2(lines);
         drawTrenches();
-        countWithRays();
+        countWithRays(minY, maxY);
 
     }
-
     @Test
     void input() throws IOException {
         Path path = Paths.get("src/test/resources/day18input.txt");
@@ -88,19 +90,95 @@ class Day18Test {
         currentY = 13536600;
         createCoordinates(lines);
         toEdges();
-        var countWithRay = countWithRays();
+        var countWithRay = countWithRays(minY, maxY);
         System.out.println("Result: "+countWithRay);
     }
 
-    private long countWithRays() {
+    @Test @Disabled("Runs for 50 min")
+    void testExecutorService() throws InterruptedException, IOException, ExecutionException, TimeoutException {
+        Path path = Paths.get("src/test/resources/day18input.txt");
+        var lines = Files.readAllLines(path);
+        currentX = 3029000;
+        currentY = 13536600;
+        createCoordinates(lines);
+        toEdges();
+
+        // 19:40 50:27 min
+        /*
+        min x = 358 min y = 5 max x = 14047781 max y = 19314900 width = 14047424 height = 19314896
+numberOfLinesPerTask 1207182
+Task submitted: 5 - 1207187
+Task submitted: 1207187 - 2414369
+Task submitted: 2414369 - 3621551
+Task submitted: 3621551 - 4828733
+Task submitted: 4828733 - 6035915
+Task submitted: 6035915 - 7243097
+Task submitted: 7243097 - 8450279
+Task submitted: 8450279 - 9657461
+Task submitted: 9657461 - 10864643
+Task submitted: 10864643 - 12071825
+Task submitted: 12071825 - 13279007
+Task submitted: 13279007 - 14486189
+Task submitted: 14486189 - 15693371
+Task submitted: 15693371 - 16900553
+Task submitted: 16900553 - 18107735
+Task submitted: 18107735 - 19314917
+Result: 3414542974433
+Result: 7857218827071
+Result: 9469550906960
+Result: 9184117483514
+Result: 10145043997689
+Result: 13396920257241
+Result: 13177369004670
+Result: 11026671029133
+Result: 10186364550418
+Result: 11153018217625
+Result: 7241612330093
+Result: 7229514816023
+Result: 8482900968068
+Result: 7326195062324
+Result: 4596195691019
+Result: 662058683432
+Overall result: 134549294799713
+         */
+        var workers = 16;
+        executorService = Executors.newFixedThreadPool(workers);
+        long numberOfLinesPerTask = (maxY -  minY)/workers + 2;
+        System.out.println("numberOfLinesPerTask " + numberOfLinesPerTask);
+        List<Future<Long>> futures = new ArrayList<>();
+        long fromY = minY;
+        for(int i = 0; i < workers; i++) {
+            final long tmp = fromY;
+            Future<Long> future = executorService.submit(() -> countWithRays(tmp, tmp + numberOfLinesPerTask));
+            futures.add(future);
+            System.out.println("Task submitted: "+tmp+" - "+(tmp + numberOfLinesPerTask));
+            fromY += numberOfLinesPerTask;
+        }
+
+        long overallResult = 0;
+        for (var future : futures) {
+            long result = future.get(100, TimeUnit.MINUTES);
+            System.out.println("Result: "+result);
+            overallResult += result;
+        }
+
+        System.out.println("Overall result: "+overallResult);
+
+        executorService.shutdown();
+        executorService.awaitTermination(3, TimeUnit.HOURS);
+    }
+
+    private long countWithRays(long fromY, long toY) {
         var countFromRay = 0L;
-        for (var y = minY; y <= maxY; y++) {
+        for (var y = fromY; y < toY; y++) {
             boolean inside = false;
             var insideStart = -1L;
 
+/*
             if (y%10000 == 0) {
                 System.out.println(y);
             }
+*/
 
             for(var raystart = minX - 2; raystart < maxX;) {
                 var nextEdge = findNextEdge(raystart, y);
