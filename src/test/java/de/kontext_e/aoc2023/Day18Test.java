@@ -77,78 +77,54 @@ class Day18Test {
         assertEquals(45159, dugOut);
 */
 
+/*
         createCoordinates2(lines);
         toEdges();
-//        drawTrenches();
-        countWithRays();
-        System.out.println("horizontal lines detected: "+horizontalLinesDetected);
-        var count = 0;
-        for (Edge edge : edges) {
-            if(edge.isHorizontal()) {
-                count++;
-                if (isNotDetected(edge)) {
-                    System.out.println("Edge was not detected: "+edge);
-                }
-            }
-  //          System.out.println("Horizontal edge in line "+edge.start.y);
-        }
-        System.out.println("horizontal lines counted : "+count);
+        var count = countWithRays();
+        assertEquals(45159, count);
+*/
 
-
-/*
         currentX = 3029000;
         currentY = 13536600;
         createCoordinates(lines);
         toEdges();
-        var ggt = ggt(lengths);
-        System.out.println("GGT = "+ggt);
-*/
-
+        var countWithRay = countWithRays();
+        System.out.println("Result: "+countWithRay);
     }
 
-    private boolean isNotDetected(Edge edge) {
-        for (Edge edge1 : horizontalEdgesDetected) {
-            if(edge.equals(edge1)) return false;
-        }
-
-        return true;
-    }
-
-    private void countWithRays() {
-        horizontalEdgesDetected.clear();
-        horizontalLinesDetected = 0;
+    private long countWithRays() {
         var countFromRay = 0L;
         for (var y = minY; y <= maxY; y++) {
             boolean inside = false;
             var insideStart = -1L;
 
-            if (y == 300) {
-                System.out.println("hier");
+            if (y%10000 == 0) {
+                System.out.println(y);
             }
 
             for(var raystart = minX - 2; raystart < maxX;) {
                 var nextEdge = findNextEdge(raystart, y);
                 if (nextEdge != null) {
-                    System.out.println("Next edge: " + nextEdge);
+                    //System.out.println("Next edge: " + nextEdge);
                     if (nextEdge.isHorizontal()) {
                         if (inside) {
                             countFromRay += nextEdge.start().x() - insideStart;
                         }
                         countFromRay += nextEdge.length();
                         raystart = nextEdge.end().x() + 1;
-                        System.out.println("New count X: " + countFromRay+" on y "+nextEdge.end.y);
-                        horizontalLinesDetected++;
-                        horizontalEdgesDetected.add(nextEdge);
+                        //System.out.println("New count X: " + countFromRay+" on y "+nextEdge.end.y);
+                        //horizontalLinesDetected++;
+                        //horizontalEdgesDetected.add(nextEdge);
                         inside = isInside(nextEdge.end().x() + 1, y);
                         insideStart = nextEdge.end.x() + 1;
-                        System.out.println("Becomes inside: "+inside);
+                        //System.out.println("Becomes inside: "+inside);
                     } else {
                         if (inside == false) {
                             inside = true;
                             insideStart = nextEdge.start.x();
                         } else {
                             countFromRay += nextEdge.end.x() - insideStart + 1;
-                            System.out.println("New count Y: " + countFromRay);
+                            //System.out.println("New count Y: " + countFromRay);
                             inside = false;
                         }
                         raystart = nextEdge.end().x() + 1;
@@ -158,6 +134,8 @@ class Day18Test {
                 }
             }
         }
+
+        return countFromRay;
     }
 
     @Test
@@ -248,10 +226,10 @@ class Day18Test {
             }
         }
 
-        long minX = Long.MAX_VALUE;
-        long maxX = Long.MIN_VALUE;
-        long minY = Long.MAX_VALUE;
-        long maxY = Long.MIN_VALUE;
+        minX = Long.MAX_VALUE;
+        maxX = Long.MIN_VALUE;
+        minY = Long.MAX_VALUE;
+        maxY = Long.MIN_VALUE;
         for (Coordinate coordinate : coordinates) {
             if (minX > coordinate.x()) {
                 minX = coordinate.x();
@@ -423,9 +401,23 @@ class Day18Test {
         return countInside();
     }
 
-    private List<Edge> horizontalEdgesDetected = new ArrayList<>();
+    @Test
+    void testFindNextEdge() throws IOException {
+        Path path = Paths.get("src/test/resources/day18input.txt");
+        var lines = Files.readAllLines(path);
 
-    private int horizontalLinesDetected = 0;
+        width = 500;
+        height = 650;
+        currentX = 140;
+        currentY = 400;
+        createCoordinates2(lines);
+        toEdges();
+
+        // not found edge: Edge was not detected: Edge[start=(98,308), end=(90,308)]
+        var edge = findNextEdge(0, 308);
+        System.out.println(edge);
+    }
+
     private Edge findNextEdge(long rayX, long y) {
         Coordinate nextStart = new Coordinate(100_000_000, 100_000_000);
         Coordinate nextEnd = new Coordinate(100_000_000, 100_000_000);
@@ -437,9 +429,6 @@ class Day18Test {
             if (start.y() == end.y()) {
                 // horizontal edge
                 if (start.y() == y) {
-                    if (y == 300) {
-                        System.out.println("hier");
-                    }
                     // on same line
                     if (start.x() > rayX || end.x() > rayX) {
                         // right side from ray
@@ -468,7 +457,6 @@ class Day18Test {
                             // more left than current
                             nextStart = start;
                             nextEnd = end;
-                            return createAscendingEdge(nextStart, nextEnd);
                         }
                     }
                 }
