@@ -14,6 +14,40 @@ class Day17Test {
     private int height;
     private final Tile nullTile = new DefaultTile();
 
+
+
+    int[][] map;
+
+    @Test
+    void testAStart() throws IOException {
+        Path path = Paths.get("src/test/resources/day17test.txt");
+        var lines = Files.readAllLines(path);
+        width = lines.get(0).length();
+        height = lines.size();
+        map = new int[width][height];
+        toField(lines);
+        printMap();
+    }
+
+    private void toField(List<String> lines) {
+        for (int y = 0; y < height; y++) {
+            var line = lines.get(y);
+            for (int x = 0; x < width; x++) {
+                map[x][y] = Integer.parseInt(""+line.charAt(x));
+            }
+        }
+    }
+
+    private void printMap() {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                System.out.print(map[x][y]);
+            }
+            System.out.println();
+        }
+        System.out.println();
+    }
+
     @Test
     void intro() throws IOException {
         Path path = Paths.get("src/test/resources/day17test.txt");
@@ -115,7 +149,7 @@ class Day17Test {
                 if (x == 0) {
                     tile.setLeftNeighbor(nullTile);
                 } else {
-                    tile.setLeftNeighbor(field[x-1][y]);
+                    tile.setLeftNeighbor(nullTile);
                 }
                 if (x == width - 1) {
                     tile.setRightNeighbor(nullTile);
@@ -249,7 +283,7 @@ class Day17Test {
             var newHeatLoss = heatLoss + this.heatLoss;
 
             if (endTile) {
-                System.out.println("Heat loss: "+newHeatLoss);
+                //System.out.println("Heat loss: "+newHeatLoss);
                 globalMaxHeatLoss = newHeatLoss;
             }
 
@@ -272,7 +306,7 @@ class Day17Test {
             var newHeatLoss = heatLoss + this.heatLoss;
 
             if (endTile) {
-                System.out.println("Heat loss: "+newHeatLoss);
+                //System.out.println("Heat loss: "+newHeatLoss);
                 globalMaxHeatLoss = newHeatLoss;
             }
 
@@ -295,7 +329,7 @@ class Day17Test {
             var newHeatLoss = heatLoss + this.heatLoss;
 
             if (endTile) {
-                System.out.println("Heat loss: "+newHeatLoss);
+                //System.out.println("Heat loss: "+newHeatLoss);
                 globalMaxHeatLoss = newHeatLoss;
             }
 
@@ -318,7 +352,7 @@ class Day17Test {
             var newHeatLoss = heatLoss + this.heatLoss;
 
             if (endTile) {
-                System.out.println("Heat loss: "+newHeatLoss);
+                //System.out.println("Heat loss: "+newHeatLoss);
                 globalMaxHeatLoss = newHeatLoss;
             }
 
