@@ -6,47 +6,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 class Day17Test {
     Tile[][] field;
     private int width;
     private int height;
     private final Tile nullTile = new DefaultTile();
-
-
-
+    private final List<Hike> openSet = new LinkedList<>();
     int[][] map;
-
-    @Test
-    void testAStart() throws IOException {
-        Path path = Paths.get("src/test/resources/day17test.txt");
-        var lines = Files.readAllLines(path);
-        width = lines.get(0).length();
-        height = lines.size();
-        map = new int[width][height];
-        toField(lines);
-        printMap();
-    }
-
-    private void toField(List<String> lines) {
-        for (int y = 0; y < height; y++) {
-            var line = lines.get(y);
-            for (int x = 0; x < width; x++) {
-                map[x][y] = Integer.parseInt(""+line.charAt(x));
-            }
-        }
-    }
-
-    private void printMap() {
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                System.out.print(map[x][y]);
-            }
-            System.out.println();
-        }
-        System.out.println();
-    }
 
     @Test
     void intro() throws IOException {
@@ -59,25 +30,11 @@ class Day17Test {
         toTiles(lines);
         connectTiles();
         field[width - 1][height - 1].setEndTile(true);
-        System.out.println("Sum X(0)     : " + sumX(0));
-        System.out.println("Sum X(height): " + sumX(height - 1));
-        System.out.println("Sum y(0)     : " + sumY(0));
-        System.out.println("Sum y(widht) : " + sumY(width - 1));
 
-        clearField();
-        field[1][0].fromLeft(0, 0);
-        var variant1 = field[width - 1][height - 1].getMinHeatLoss();
-        System.out.println(variant1);
+        executeAStar();
 
-/*
-        clearField();
-        field[0][1].fromTop(0, 0);
-        var variant2 = field[width - 1][height - 1].getMinHeatLoss();
-        System.out.println(variant2);
-*/
+        System.out.println("OpenSet: "+openSet);
     }
-
-    private long globalMaxHeatLoss = 600;
 
     @Test
     void input() throws IOException {
@@ -88,24 +45,198 @@ class Day17Test {
         field = new Tile[width][height];
         System.out.println("Width: "+width+" Height: "+height);
         toTiles(lines);
+        //printField();
+
         connectTiles();
         field[width - 1][height - 1].setEndTile(true);
-        System.out.println("Sum X(0)     : " + sumX(0));
-        System.out.println("Sum X(height): " + sumX(height - 1));
-        System.out.println("Sum y(0)     : " + sumY(0));
-        System.out.println("Sum y(widht) : " + sumY(width - 1));
 
-        clearField();
-        field[1][0].fromLeft(0, 0);
-        var variant1 = field[width - 1][height - 1].getMinHeatLoss();
-        System.out.println(variant1);
-/*
-        clearField();
-        field[0][1].fromTop(0, 0);
-        var variant2 = field[width - 1][height - 1].getMinHeatLoss();
-        System.out.println(variant2);
-*/
+        executeAStar();
+
+        System.out.println("OpenSet: "+openSet);
+
+        // 920 too high
+        // 927
     }
+
+    private void executeAStar() {
+        clearField();
+        openSet.clear();
+
+        final var startPoint = new Hike(field[0][0]);
+        openSet.add(startPoint);
+        startPoint.setMinHeatLoss(0);
+        startPoint.calculateF();
+
+        var lowestHeatLost = Integer.MAX_VALUE;
+        while(openSet.isEmpty() == false)
+        {
+            var hike = selectLowestF();
+            if(hike == null) break;
+            if(hike.isEnd()) {
+                if (hike.getMinHeatLoss() < lowestHeatLost) {
+                    lowestHeatLost = hike.getMinHeatLoss();
+                }
+                System.out.println("found cheapest path: "+" with heat loss "+hike.getMinHeatLoss()+" hike length: "+hike.length()+" global lowest: "+lowestHeatLost+" open set: "+openSet.size());
+            }
+            process(hike);
+        }
+    }
+
+    private void process(Hike hike) {
+        openSet.remove(hike);
+        var neighbors = hike.getNeighbors();
+        for (var neighbor : neighbors) {
+            if(neighbor.isInBorder(16) == false) continue;
+
+            // dont go in circles
+            if(hike.contains(neighbor)) continue;
+
+            var tentativeGScore = hike.getMinHeatLoss() + neighbor.getHeatLoss();
+            if(tentativeGScore <= (neighbor.getMinHeatLoss()) + 2) {
+                if(tentativeGScore < neighbor.getMinHeatLoss()) {
+                    neighbor.setMinHeatLoss(tentativeGScore);
+                }
+
+                Hike copy = hike.copy();
+                copy.addTile(neighbor);
+                copy.setMinHeatLoss((int) tentativeGScore);
+                copy.calculateF();
+                addToOpenSet(hike, copy);
+            }
+        }
+    }
+
+    private void addToOpenSet(Hike hike, Hike copy) {
+        openSet.add(copy);
+    }
+
+    private int shortestDistance = Integer.MAX_VALUE;
+    private Hike selectLowestF() {
+        if(openSet.isEmpty()) return null;
+        Hike result = null;
+        Hike highestF = openSet.get(0);
+
+        for (var hike : openSet) {
+            if (result == null) {
+                result = hike;
+                continue;
+            }
+            if (hike.getF() < result.getF()) {
+                result = hike;
+            }
+            if (hike.getF() > highestF.getF()) {
+                highestF = hike;
+            }
+        }
+
+        if (openSet.size() > 5000) {
+            openSet.remove(highestF);
+        }
+
+        if (result.estimateDistance() < shortestDistance) {
+            shortestDistance = result.estimateDistance();
+            System.out.printf("# open set: %5d lowest F: %d highest F: %d shortest distance to target: %d\n", openSet.size(), result.getF(), highestF.getF(), shortestDistance);
+        }
+
+        //System.out.printf("# open set: %5d lowest F: %d highest F: %d shortest distance to target: %d\n", openSet.size(), result.getF(), highestF, shortestDistance);
+        return result;
+    }
+
+    private class Hike {
+        int f;
+        List<Tile> path = new LinkedList<>();
+        private int heatLoss;
+
+        @Override
+        public String toString() {
+            return "f="+f+" l="+path.size()+" loss="+heatLoss;
+        }
+
+        public Hike() {}
+
+        public Hike(Tile tile) {
+            path.add(tile);
+        }
+
+        public Hike copy() {
+            Hike theCopy = new Hike();
+            theCopy.f = f;
+            theCopy.path.addAll(path);
+            theCopy.heatLoss = heatLoss;
+            return theCopy;
+        }
+
+        public int getF() {
+            return f;
+        }
+
+        public void setMinHeatLoss(int heatLoss) {
+            this.heatLoss = heatLoss;
+        }
+
+        public void calculateF() {
+            f = 0;
+            for (var tile : path) {
+                f += (int) tile.getHeatLoss();
+            }
+            f += (int) (estimateDistance() * 3);
+        }
+
+        int estimateDistance() {
+            var last = path.get(path.size()-1);
+            return (width - last.getX()) + (height - last.getY());
+        }
+
+        public boolean isEnd() {
+            return path.get(path.size()-1).isEndTile();
+        }
+
+        public int getMinHeatLoss() {
+            return heatLoss;
+        }
+
+        public String getPath() {
+            var p = "";
+            for (int i = 0; i < path.size()-1;i++) {
+                var cameFrom = path.get(i);
+                var now = path.get(i+1);
+                char cameFromDirection;
+                if (cameFrom.getY() == now.getY()) {
+                    if (cameFrom.getX() < now.getX()) {
+                        cameFromDirection = '>';
+                    } else {
+                        cameFromDirection = '<';
+                    }
+                } else {
+                    if (cameFrom.getY() < now.getY()) {
+                        cameFromDirection = 'v';
+                    } else {
+                        cameFromDirection = '^';
+                    }
+                }
+                p += cameFromDirection;
+            }
+            return p;
+        }
+
+        public List<Tile> getNeighbors() {
+            return path.get(path.size()-1).getNeighbors(getPath());
+        }
+
+        public void addTile(Tile neighbor) {
+            path.add(neighbor);
+        }
+
+        public boolean contains(Tile neighbor) {
+            return path.contains(neighbor);
+        }
+
+        public int length() {
+            return path.size();
+        }
+    }
+
+    private long globalMaxHeatLoss = 600;
 
     private long sumY(int x) {
         long sum = 0;
@@ -149,7 +280,7 @@ class Day17Test {
                 if (x == 0) {
                     tile.setLeftNeighbor(nullTile);
                 } else {
-                    tile.setLeftNeighbor(nullTile);
+                    tile.setLeftNeighbor(field[x-1][y]);
                 }
                 if (x == width - 1) {
                     tile.setRightNeighbor(nullTile);
@@ -163,7 +294,12 @@ class Day17Test {
     private void printField() {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                System.out.print(field[x][y]);
+                final var heatLoss = field[x][y].getHeatLoss();
+                if (heatLoss < 4) {
+                    System.out.print(heatLoss);
+                } else {
+                    System.out.print(" ");
+                }
             }
             System.out.println();
         }
@@ -174,13 +310,13 @@ class Day17Test {
         for (int y = 0; y < height; y++) {
             var line = lines.get(y);
             for (int x = 0; x < width; x++) {
-                field[x][y] = createTile(line.charAt(x));
+                field[x][y] = createTile(x, y, line.charAt(x));
             }
         }
     }
 
-    private Tile createTile(char c) {
-        return new HeatLossTile(Integer.parseInt(""+c));
+    private Tile createTile(int x, int y, char c) {
+        return new HeatLossTile(x, y, Integer.parseInt(""+c));
     }
 
     private interface Tile {
@@ -206,73 +342,38 @@ class Day17Test {
         long getHeatLoss();
 
         void setEndTile(boolean endTile);
-    }
 
-    private abstract class AbstractTile implements Tile {
-        Tile up;
-        Tile down;
-        Tile right;
-        Tile left;
-        boolean endTile = false;
+        void calculateF();
 
-        @Override
-        public void setEndTile(boolean endTile) {
-            this.endTile = endTile;
-        }
+        int getF();
 
-        @Override
-        public void clear() {
-        }
+        boolean isEndTile();
 
-        @Override
-        public void setUpNeighbor(Tile tile) {
-            up = tile;
-        }
+        void setMinHeatLoss(long minHeatLoss);
 
-        @Override
-        public void setDownNeighbor(Tile tile) {
-            down = tile;
-        }
+        List<Tile> getNeighbors(String path);
 
-        @Override
-        public void setRightNeighbor(Tile tile) {
-            right = tile;
-        }
+        void setCameFrom(Tile tile);
 
-        @Override
-        public void setLeftNeighbor(Tile tile) {
-            left = tile;
-        }
+        int getX();
+        int getY();
 
-        @Override
-        public void toLeft(long heatLoss, int sameDirection) {
-            left.fromRight(heatLoss, sameDirection);
-        }
+        String getPath();
 
-        @Override
-        public void toRight(long heatLoss, int sameDirection) {
-            right.fromLeft(heatLoss, sameDirection);
-        }
-
-        @Override
-        public void toTop(long heatLoss, int sameDirection) {
-            up.fromDown(heatLoss, sameDirection);
-        }
-
-        @Override
-        public void toDown(long heatLoss, int sameDirection) {
-            down.fromTop(heatLoss, sameDirection);
-        }
+        boolean isInBorder(int borderWidth);
     }
 
     private class HeatLossTile extends AbstractTile {
+
         private static final int MAX_SAME_DIRECTION = 2;
         private static final int TOLERANCE = 10;
         private final int heatLoss;
-        long minHeatLoss = 100_000_000L;
+        int f = 0;
 
 
-        public HeatLossTile(int heatLoss) {
+        public HeatLossTile(int x, int y, int heatLoss) {
+            this.x = x;
+            this.y = y;
             this.heatLoss = heatLoss;
         }
 
@@ -374,18 +475,206 @@ class Day17Test {
         }
 
         @Override
+        public void calculateF() {
+            f = (int) (minHeatLoss + estimateDistance());
+        }
+
+        private int estimateDistance() {
+            return ((width - x) + (height - y)) * 0;
+        }
+
+        public int getF() {
+            return f;
+        }
+
+        @Override
         public long getMinHeatLoss() {
             return minHeatLoss;
         }
 
         @Override
         public void clear() {
-            minHeatLoss = 100_000_000L;
+            super.clear();
+            f = 0;
         }
         @Override
         public String toString() {
-            return ""+heatLoss;
+            return ""+heatLoss+"/"+minHeatLoss+" ("+x+","+y+")";
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            HeatLossTile that = (HeatLossTile) o;
+            return x == that.x && y == that.y;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(x, y);
+        }
+    }
+
+    private abstract class AbstractTile implements Tile {
+        Tile up;
+        Tile down;
+        Tile right;
+        Tile left;
+        boolean endTile = false;
+        Tile cameFrom;
+        char cameFromDirection = ' ';
+        long minHeatLoss = 100_000_000L; // gScore
+        int x = -1;
+        int y = -1;
+
+        @Override
+        public String getPath() {
+            if(cameFrom == null) return "";
+            return cameFrom.getPath()+cameFromDirection;
+        }
+
+        @Override
+        public boolean isInBorder(int borderWidth) {
+            if(x < borderWidth) return true;
+            if(y > (height - borderWidth)) return true;
+            return false;
+        }
+
+        @Override
+        public long getMinHeatLoss() {
+            return minHeatLoss;
+        }
+
+        @Override
+        public void setMinHeatLoss(long minHeatLoss) {
+            this.minHeatLoss = minHeatLoss;
+        }
+
+        @Override
+        public List<Tile> getNeighbors(String path) {
+            final var neighbors = new ArrayList<Tile>();
+            if(up != null) neighbors.add(up);
+            if(down != null) neighbors.add(down);
+            if(left != null) neighbors.add(left);
+            if(right != null) neighbors.add(right);
+
+            if (path.endsWith(">")) {
+                neighbors.remove(left);
+            }
+            if (path.endsWith("<")) {
+                neighbors.remove(right);
+            }
+            if (path.endsWith("v")) {
+                neighbors.remove(up);
+            }
+            if (path.endsWith("^")) {
+                neighbors.remove(down);
+            }
+
+            if (path.endsWith(">>>")) {
+                neighbors.remove(right);
+            }
+            if (path.endsWith("<<<")) {
+                neighbors.remove(left);
+            }
+            if (path.endsWith("vvv")) {
+                neighbors.remove(down);
+            }
+            if (path.endsWith("^^^")) {
+                neighbors.remove(up);
+            }
+            return neighbors;
+        }
+
+        public Tile getCameFrom() {
+            return cameFrom;
+        }
+
+        @Override
+        public void setCameFrom(Tile cameFrom) {
+            this.cameFrom = cameFrom;
+            if (cameFrom.getY() == y) {
+                if (cameFrom.getX() < x) {
+                    cameFromDirection = '>';
+                } else {
+                    cameFromDirection = '<';
+                }
+            } else {
+                if (cameFrom.getY() < y) {
+                    cameFromDirection = 'v';
+                } else {
+                    cameFromDirection = '^';
+                }
+            }
+        }
+
+        @Override
+        public void setEndTile(boolean endTile) {
+            this.endTile = endTile;
+        }
+
+        @Override
+        public boolean isEndTile() {
+            return endTile;
+        }
+
+        @Override
+        public void clear() {
+            minHeatLoss = 100_000_000L;
+        }
+
+        @Override
+        public int getX() {
+            return x;
+        }
+
+        @Override
+        public int getY() {
+            return y;
+        }
+
+        @Override
+        public void setUpNeighbor(Tile tile) {
+            up = tile;
+        }
+
+        @Override
+        public void setDownNeighbor(Tile tile) {
+            down = tile;
+        }
+
+        @Override
+        public void setRightNeighbor(Tile tile) {
+            right = tile;
+        }
+
+        @Override
+        public void setLeftNeighbor(Tile tile) {
+            left = tile;
+        }
+
+        @Override
+        public void toLeft(long heatLoss, int sameDirection) {
+            left.fromRight(heatLoss, sameDirection);
+        }
+
+        @Override
+        public void toRight(long heatLoss, int sameDirection) {
+            right.fromLeft(heatLoss, sameDirection);
+        }
+
+        @Override
+        public void toTop(long heatLoss, int sameDirection) {
+            up.fromDown(heatLoss, sameDirection);
+        }
+
+        @Override
+        public void toDown(long heatLoss, int sameDirection) {
+            down.fromTop(heatLoss, sameDirection);
+        }
+
+
     }
 
     private class DefaultTile extends AbstractTile {
@@ -409,6 +698,21 @@ class Day17Test {
         @Override
         public long getHeatLoss() {
             return 0;
+        }
+
+        @Override
+        public void calculateF() {
+
+        }
+
+        @Override
+        public void clear() {
+            super.clear();
+        }
+
+        @Override
+        public int getF() {
+            return Integer.MAX_VALUE;
         }
 
         @Override
