@@ -6,10 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 class Day17Test {
     Tile[][] field;
@@ -56,6 +53,121 @@ class Day17Test {
 
         // 920 too high
         // 927
+    }
+
+
+    @Test
+    void testNode() throws IOException {
+        Path path = Paths.get("src/test/resources/day17input.txt");
+        var lines = Files.readAllLines(path);
+        width = lines.get(0).length();
+        height = lines.size();
+        field = new Tile[width][height];
+        System.out.println("Width: "+width+" Height: "+height);
+        toTiles(lines);
+        connectTiles();
+        field[width - 1][height - 1].setEndTile(true);
+
+
+        Set<Node> os = new HashSet<>();
+        final var startNode = new Node(0, 0, '>', 0);
+        os.add(startNode);
+        gScores.put(startNode, 0);
+        fScores.put(startNode, h(startNode));
+
+        while (os.isEmpty() == false) {
+            var current = selectBest(os);
+            if(current == null) break;
+            if(isEnd(current)) {
+                System.out.println("End reached, gScore: "+gScores.get(current));
+                break;
+            }
+            process(current, os);
+        }
+    }
+
+    private final Map<Node, Integer> fScores = new HashMap<>();
+    private final Map<Node, Integer> gScores = new HashMap<>();
+
+    void process(Node node, Set<Node> os) {
+        os.remove(node);
+        var neighbors = node.neighbors(width, height);
+        for(var neighbor : neighbors) {
+            var tentativeGScore = gScores.get(node) + d(neighbor);
+            if (gScores.get(neighbor) == null || tentativeGScore < gScores.get(neighbor)) {
+                gScores.put(neighbor, tentativeGScore);
+                fScores.put(neighbor, tentativeGScore + h(neighbor));
+                os.add(neighbor);
+            }
+        }
+    }
+
+    private Node selectBest(Set<Node> os) {
+        var lowestF = 1_000_000;
+        Node result = null;
+        for (var node : os) {
+            var f = fScores.get(node);
+            if(f == null) f = 1_000_000;
+            if (f < lowestF) {
+                lowestF = f;
+                result = node;
+            }
+        }
+
+        return result;
+    }
+
+    private int h(Node neighbor) {
+        // simple manhattan distance
+        return ((width - neighbor.x) + (height - neighbor.y));
+    }
+
+    private Integer d(Node neighbor) {
+        return Math.toIntExact(field[neighbor.x][neighbor.y].getHeatLoss());
+    }
+
+    private boolean isEnd(Node node) {
+        return node.x == width - 1 && node.y == height - 1;
+    }
+
+    record Node(int x, int y, char dir, int steps) {
+        public List<Node> neighbors(int width, int height) {
+            List<Node> neigbors = new LinkedList<>();
+            if (y > 0 && dir != 'v' && (dir != '^' || steps < 3)) {
+                neigbors.add(north());
+            }
+            if (y < height - 1 && dir != '^' && (dir != 'v' || steps < 3)) {
+                neigbors.add(south());
+            }
+            if (x > 0 && dir != '>' && (dir != '<' || steps < 3)) {
+                neigbors.add(west());
+            }
+            if (x < width - 1 && dir != '<' && (dir != '>' || steps < 3)) {
+                neigbors.add(east());
+            }
+            return neigbors;
+        }
+
+        private Node west() {
+            var s = 1;
+            if(dir == '<') s = steps + 1;
+            return new Node(x-1, y, '<', s);
+        }
+        private Node east() {
+            var s = 1;
+            if(dir == '>') s = steps + 1;
+            return new Node(x+1, y, '>', s);
+        }
+        private Node north() {
+            var s = 1;
+            if(dir == '^') s = steps + 1;
+            return new Node(x, y-1, '^', s);
+        }
+        private Node south() {
+            var s = 1;
+            if(dir == 'v') s = steps + 1;
+            return new Node(x, y+1, 'v', s);
+        }
     }
 
     private void executeAStar() {
