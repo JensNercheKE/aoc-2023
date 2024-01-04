@@ -70,7 +70,11 @@ class Day17Test {
 
 
         Set<Node> os = new HashSet<>();
-        final var startNode = new Node(0, 0, '>', 0);
+        var startNode = new Node(0, 0, 'v', 0);
+        os.add(startNode);
+        gScores.put(startNode, 0);
+        fScores.put(startNode, h(startNode));
+        startNode = new Node(0, 0, '>', 0);
         os.add(startNode);
         gScores.put(startNode, 0);
         fScores.put(startNode, h(startNode));
@@ -78,7 +82,7 @@ class Day17Test {
         while (os.isEmpty() == false) {
             var current = selectBest(os);
             if(current == null) break;
-            if(isEnd(current)) {
+            if(isEnd(current) && current.steps >= 4) {
                 System.out.println("End reached, gScore: "+gScores.get(current));
                 break;
             }
@@ -114,6 +118,11 @@ class Day17Test {
             }
         }
 
+        var distance = h(result);
+        if (distance < shortestDistance) {
+            shortestDistance = distance;
+            System.out.println("Shortest distance: "+shortestDistance);
+        }
         return result;
     }
 
@@ -133,16 +142,48 @@ class Day17Test {
     record Node(int x, int y, char dir, int steps) {
         public List<Node> neighbors(int width, int height) {
             List<Node> neigbors = new LinkedList<>();
-            if (y > 0 && dir != 'v' && (dir != '^' || steps < 3)) {
+
+            if (dir == '^' && steps < 4) {
+                // must go further north
+                if(y > 0) {
+                    neigbors.add(north());
+                }
+                return neigbors;
+            }
+            if (dir == 'v' && steps < 4) {
+                // must go further
+                if(y < height - 1) {
+                    neigbors.add(south());
+                }
+                return neigbors;
+            }
+            if (dir == '>' && steps < 4) {
+                // must go further
+                if(x < width - 1) {
+                    neigbors.add(east());
+                }
+                return neigbors;
+            }
+            if (dir == '<' && steps < 4) {
+                // must go further
+                if(x > 0) {
+                    neigbors.add(west());
+                }
+                return neigbors;
+            }
+
+
+            final int maxSteps = 10;
+            if (y > 0 && dir != 'v' && (dir != '^' || steps < maxSteps)){
                 neigbors.add(north());
             }
-            if (y < height - 1 && dir != '^' && (dir != 'v' || steps < 3)) {
+            if (y < height - 1 && dir != '^' && (dir != 'v' || steps < maxSteps)) {
                 neigbors.add(south());
             }
-            if (x > 0 && dir != '>' && (dir != '<' || steps < 3)) {
+            if (x > 0 && dir != '>' && (dir != '<' || steps < maxSteps)) {
                 neigbors.add(west());
             }
-            if (x < width - 1 && dir != '<' && (dir != '>' || steps < 3)) {
+            if (x < width - 1 && dir != '<' && (dir != '>' || steps < maxSteps)) {
                 neigbors.add(east());
             }
             return neigbors;
