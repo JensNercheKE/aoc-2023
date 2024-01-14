@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -42,6 +43,22 @@ class Day24Test {
         var result = countPathsCross();
 
         assertEquals(31921L, result);
+    }
+
+    @Test
+    void findParallelVectors() throws IOException {
+        Path path = Paths.get("src/test/resources/day24input.txt");
+        var lines = Files.readAllLines(path);
+        toHailstones(lines);
+
+        for (int i = 0; i < hailstones.size() - 1; i++) {
+            for (int k = i + 1; k < hailstones.size(); k++) {
+                if (hailstones.get(i).isParallel3d(hailstones.get(k))) {
+                    System.out.println("Found parallel hailstones: "+hailstones.get(i)+" - "+hailstones.get(k));
+                }
+            }
+        }
+
     }
 
     private long countPathsCross() {
@@ -176,6 +193,15 @@ class Day24Test {
             return (double)this.velocity.vx / other.velocity.vx == (double)this.velocity.vy / other.velocity.vy;
         }
 
+        public boolean isParallel3d(Hailstone other) {
+            return (double)this.velocity.vx / other.velocity.vx
+                    == (double)this.velocity.vy / other.velocity.vy
+                    &&
+                    (double)this.velocity.vy / other.velocity.vy
+                    == (double)this.velocity.vz / other.velocity.vz
+                    ;
+        }
+
         public boolean isInTestArea(Hailstone other) {
             if(isParallel(other)) return false;
 
@@ -186,6 +212,16 @@ class Day24Test {
             if(testArea == null) throw new IllegalStateException("testArea is null");
 
             return testArea.contains(intersection);
+        }
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", Hailstone.class.getSimpleName() + "[", "]")
+                    .add("position=" + position)
+                    .add("velocity=" + velocity)
+                    .add("a=" + a)
+                    .add("b=" + b)
+                    .toString();
         }
     }
 
